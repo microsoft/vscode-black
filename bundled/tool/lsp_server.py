@@ -60,7 +60,6 @@ update_environ_path()
 # **********************************************************
 # Imports needed for the language server goes below this.
 # **********************************************************
-# pylint: disable=wrong-import-position,import-error
 import lsp_edit_utils as edit_utils
 import lsp_io
 import lsp_jsonrpc as jsonrpc
@@ -256,6 +255,56 @@ def _get_args_by_file_extension(document: workspace.Document) -> List[str]:
 
 
 # **********************************************************
+# Check file features ends here
+# **********************************************************
+
+
+@LSP_SERVER.feature(
+    lsp.TEXT_DOCUMENT_DIAGNOSTIC,
+    lsp.DiagnosticRegistrationOptions(
+        inter_file_dependencies=False,
+        workspace_diagnostics=False,
+    ),
+)
+def diagnostics(params: lsp.DocumentDiagnosticParams) -> lsp.DocumentDiagnosticReport:
+    """LSP handler for textDocument/diagnostic request."""
+    document = LSP_SERVER.workspace.get_text_document(params.text_document.uri)
+    settings = _get_settings_by_document(document)
+    diagnostics = []
+    if settings.get("check", False):
+        diagnostics = _check_document(document)
+    return lsp.RelatedFullDocumentDiagnosticReport(items=diagnostics)
+
+
+def _check_document(document: workspace.Document) -> lsp.DocumentDiagnosticReport:
+    """Runs black in check mode to get diagnostics."""
+    extra_args = ["--check"] + _get_args_by_file_extension(document)
+    extra_args += ["--stdin-filename", _get_filename_for_black(document)]
+    result = _run_tool_on_document(document, use_stdin=True, extra_args=extra_args)
+    diagnostics = []
+    if result and result.stderr and "would reformat" in result.stderr:
+        log_to_output(result.stderr)
+        diagnostics = [
+            lsp.Diagnostic(
+                range=lsp.Range(
+                    start=lsp.Position(line=0, character=0),
+                    end=lsp.Position(line=0, character=0),
+                ),
+                message="Black would reformat this file.",
+                severity=lsp.DiagnosticSeverity.Warning,
+                source=TOOL_DISPLAY,
+                code="black",
+            )
+        ]
+    return diagnostics
+
+
+# **********************************************************
+# Check file features ends here
+# **********************************************************
+
+
+# **********************************************************
 # Required Language Server Initialization and Exit handlers.
 # **********************************************************
 @LSP_SERVER.feature(lsp.INITIALIZE)
@@ -339,7 +388,7 @@ def _update_workspace_settings_with_version_info(
                     f"FOUND {TOOL_MODULE}=={actual_version}\r\n"
                 )
 
-        except:  # pylint: disable=bare-except
+        except Exception:
             log_to_output(
                 f"Error while detecting black version:\r\n{traceback.format_exc()}"
             )
@@ -350,6 +399,7 @@ def _update_workspace_settings_with_version_info(
 # *****************************************************
 def _get_global_defaults():
     return {
+        "check": False,
         "path": GLOBAL_SETTINGS.get("path", []),
         "interpreter": GLOBAL_SETTINGS.get("interpreter", [sys.executable]),
         "args": GLOBAL_SETTINGS.get("args", []),

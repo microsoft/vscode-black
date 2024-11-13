@@ -11,6 +11,7 @@ import { trace } from 'console';
 
 export interface ISettings {
     cwd: string;
+    check: boolean;
     workspace: string;
     args: string[];
     path: string[];
@@ -128,6 +129,7 @@ export async function getWorkspaceSettings(
 
     const workspaceSetting = {
         cwd: getCwd(config, workspace),
+        check: config.get<boolean>('check', false),
         workspace: workspace.uri.toString(),
         args: resolveVariables(config.get<string[]>('args', []), 'args', workspace),
         path: resolveVariables(config.get<string[]>('path', []), 'path', workspace, interpreter),
@@ -159,6 +161,7 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
 
     const setting = {
         cwd: process.cwd(),
+        check: config.get<boolean>('check', false),
         workspace: process.cwd(),
         args: getGlobalValue<string[]>(config, 'args') ?? [],
         path: getGlobalValue<string[]>(config, 'path') ?? [],

@@ -87,6 +87,15 @@
                     "scope": "resource",
                     "type": "array"
                 },
+                "black-formatter.check": {
+                    "default": false,
+                    "markdownDescription": "%settings.check.description%",
+                    "scope": "resource",
+                    "type": "boolean",
+                    "tags": [
+                        "experimental"
+                    ]
+                },
                 "black-formatter.cwd": {
                     "default": "${workspaceFolder}",
                     "markdownDescription": "%settings.cwd.description%",
